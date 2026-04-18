@@ -2,12 +2,12 @@ const NOTES = [
   {
     icon: '📦',
     title: 'Stock levels are limited',
-    body: 'Shopify\'s public API only tells us whether a product is in stock or not — not the exact quantity. The "In Stock" column means at least 1 unit is available.',
+    body: 'Shopify\'s public API only tells us whether a product is in stock or not - not the exact quantity. The "In Stock" column means at least 1 unit is available.',
   },
   {
     icon: '🏷️',
     title: 'Tag columns depend on the store',
-    body: 'The "Tag → Category", "Tag → Room" columns only populate if the store organises its tags in a "Key: Value" format. Many stores use flat tags like "sale" or "new" — those appear in the Tags column instead.',
+    body: 'The "Tag → Category", "Tag → Room" columns only populate if the store organises its tags in a "Key: Value" format. Many stores use flat tags like "sale" or "new" - those appear in the Tags column instead.',
   },
   {
     icon: '📝',

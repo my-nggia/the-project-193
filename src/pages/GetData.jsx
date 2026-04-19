@@ -18,7 +18,7 @@ export default function GetData() {
   const [skuFilter, setSkuFilter]             = useState(null)
 
   // ── All hook calls must be at the top of the component ──
-  const { status, data, productCount, error, run, reset } = useScraper()
+  const { status, data, productCount, loadedCount, error, run, reset } = useScraper()
 
   // ── Filtering logic ──
   const filtered = useMemo(() => {
@@ -101,16 +101,29 @@ export default function GetData() {
 
       {/* ── Loading ── */}
       {status === 'loading' && (
-        <div style={{ textAlign: 'center', marginTop: 60, color: 'var(--text-muted)' }}>
-          <div style={{
-            display: 'inline-block', width: 28, height: 28,
-            border: '3px solid var(--wine-pale)', borderTop: '3px solid var(--wine)',
-            borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 16
-          }} />
-          <p style={{ fontSize: 14 }}>Fetching products from Shopify…</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-        </div>
-      )}
+      <div style={{ textAlign: 'center', marginTop: 60, color: 'var(--text-muted)' }}>
+        <div style={{
+          display: 'inline-block', width: 28, height: 28,
+          border: '3px solid var(--wine-pale)', borderTop: '3px solid var(--wine)',
+          borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 16
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    
+        <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginBottom: 6 }}>
+          Fetching products from Shopify…
+        </p>
+    
+        {loadedCount > 0 && (
+          <p style={{ fontSize: 13, color: 'var(--wine)', fontFamily: 'var(--mono)' }}>
+            {loadedCount.toLocaleString()} products loaded so far
+          </p>
+        )}
+    
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, maxWidth: 340, margin: '8px auto 0' }}>
+          Large stores (10k+ products) can take 30–60 seconds. Please keep this tab open.
+        </p>
+      </div>
+    )}
 
       {/* ── Results ── */}
       {status === 'done' && (

@@ -70,3 +70,137 @@ export async function scrapeStore(rawUrl, onProgress) {
 
   return allProducts
 }
+
+// Strip HTML tags and decode entities for clean plain text
+function stripHtml(html) {
+  if (!html) return ''
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\u003C/g, '<')
+    .replace(/\u003E/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseTags(tags) {
+  const raw = Array.isArray(tags) ? tags : []
+  const structured = {}
+  const plain = []
+
+  raw.forEach(tag => {
+    const match = tag.match(/^(.+?):\s*(.+)$/)
+    if (match) {
+      const key = match[1].trim().toLowerCase().replace(/[^a-z0-9]/g, '_')
+      structured[key] = match[2].trim()
+    } else {
+      plain.push(tag)
+    }
+  })
+
+  return { structured, plain }
+}
+
+function getVariantImage(variant, allImages) {
+  if (variant.featured_image?.src) return variant.featured_image.src
+  const tagged = allImages.find(img =>
+    img.variant_ids && img.variant_ids.includes(variant.id)
+  )
+  if (tagged) return tagged.src
+  return allImages[0]?.src ?? ''
+}
+
+export function flattenProducts(products) {
+  const rows = []
+
+  products.forEach(p => {
+    const { structured, plain } = parseTags(p.tags)
+    const description = stripHtml(p.body_html)
+    const allImages   = p.images ?? []
+
+    const galleryImages = allImages
+      .filter(img => !img.variant_ids || img.variant_ids.length === 0)
+      .map(img => img.src)
+
+    const options = (p.options ?? [])
+      .filter(o => o.name !== 'Title')
+      .map(o => `${o.name}: ${o.values.join(', ')}`)
+      .join(' | ')
+
+    const variants = p.variants ?? []
+
+    if (variants.length === 0) {
+      rows.push({
+        product_id:       String(p.id),
+        product_title:    p.title ?? '',
+        description,
+        vendor:           p.vendor ?? '',
+        product_type:     p.product_type ?? '',
+        tags:             plain.join(', '),
+        tag_category:     structured.cat ?? structured.category ?? '',
+        tag_subcategory:  structured.sub_cat ?? structured.subcategory ?? '',
+        tag_room:         structured.room ?? '',
+        options,
+        variant_id:       '',
+        variant_title:    '',
+        sku:              '',
+        price:            '',
+        compare_at_price: '',
+        on_sale:          'No',
+        available:        '',
+        variant_image:    allImages[0]?.src ?? '',
+        gallery_images:   galleryImages.join(' | '),
+        published_at:     p.published_at ?? '',
+        created_at:       p.created_at ?? '',
+        updated_at:       p.updated_at ?? '',
+      })
+      return
+    }
+
+    variants.forEach(v => {
+      const variantParts = [v.option1, v.option2, v.option3]
+        .filter(Boolean)
+        .filter(x => x !== 'Default Title')
+      const variantTitle = variantParts.join(' / ')
+
+      const price          = v.price ?? ''
+      const compareAtPrice = v.compare_at_price ?? ''
+
+      const onSale = compareAtPrice &&
+        parseFloat(compareAtPrice) > parseFloat(price)
+          ? 'Yes'
+          : 'No'
+
+      rows.push({
+        product_id:       String(p.id),
+        product_title:    p.title ?? '',
+        description,
+        vendor:           p.vendor ?? '',
+        product_type:     p.product_type ?? '',
+        tags:             plain.join(', '),
+        tag_category:     structured.cat ?? structured.category ?? '',
+        tag_subcategory:  structured.sub_cat ?? structured.subcategory ?? '',
+        tag_room:         structured.room ?? '',
+        options,
+        variant_id:       String(v.id),
+        variant_title:    variantTitle,
+        sku:              v.sku ?? '',
+        price,
+        compare_at_price: onSale === 'Yes' ? compareAtPrice : '',
+        on_sale:          onSale,
+        available:        v.available ? 'Yes' : 'No',
+        variant_image:    getVariantImage(v, allImages),
+        gallery_images:   galleryImages.join(' | '),
+        published_at:     p.published_at ?? '',
+        created_at:       p.created_at ?? '',
+        updated_at:       p.updated_at ?? '',
+      })
+    })
+  })
+
+  return rows
+}

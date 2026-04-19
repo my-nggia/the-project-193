@@ -2,15 +2,48 @@ const PROXY = import.meta.env.DEV
   ? 'http://localhost:3001/api/proxy'
   : '/api/proxy'
 
+// Wait N milliseconds between requests
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Retry a fetch up to maxRetries times with exponential backoff
+async function fetchWithRetry(url, maxRetries = 3) {
+  let lastError
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url)
+
+      // 429 = rate limited, 503 = server busy — both are retryable
+      if (response.status === 429 || response.status === 503) {
+        const wait = Math.pow(2, attempt) * 1000  // 1s, 2s, 4s
+        await sleep(wait)
+        continue
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      return await response.json()
+
+    } catch (err) {
+      lastError = err
+      const wait = Math.pow(2, attempt) * 1000
+      await sleep(wait)
+    }
+  }
+
+  throw lastError ?? new Error('Max retries exceeded')
+}
+
 async function fetchPage(storeUrl, page) {
   const target = `${storeUrl}/products.json?limit=250&page=${page}`
-  const response = await fetch(`${PROXY}?url=${encodeURIComponent(target)}`)
-  if (!response.ok) throw new Error(`Failed on page ${page}: ${response.status}`)
-  const data = await response.json()
+  const url    = `${PROXY}?url=${encodeURIComponent(target)}`
+  const data   = await fetchWithRetry(url)
   return data.products ?? []
 }
 
-export async function scrapeStore(rawUrl) {
+export async function scrapeStore(rawUrl, onProgress) {
   let storeUrl = rawUrl.trim().replace(/\/$/, '')
   if (!storeUrl.startsWith('http')) storeUrl = 'https://' + storeUrl
 
@@ -19,73 +52,21 @@ export async function scrapeStore(rawUrl) {
 
   while (true) {
     const products = await fetchPage(storeUrl, page)
+
     if (products.length === 0) break
+
     allProducts.push(...products)
+
+    // Report progress back to the UI
+    if (onProgress) onProgress(allProducts.length)
+
     if (products.length < 250) break
+
     page++
+
+    // Polite delay between pages — reduces chance of getting blocked
+    await sleep(300)
   }
 
   return allProducts
-}
-
-export function flattenProducts(products) {
-  const rows = []
-
-  products.forEach(p => {
-    const tags    = Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags ?? '')
-    const images  = (p.images ?? []).map(img => img.src).join(' | ')
-    const options = (p.options ?? [])
-      .filter(o => o.name !== 'Title')
-      .map(o => `${o.name}: ${o.values.join(', ')}`)
-      .join(' | ')
-
-    if (!p.variants || p.variants.length === 0) {
-      rows.push({
-        product_id:        String(p.id),
-        product_title:     p.title ?? '',
-        vendor:            p.vendor ?? '',
-        product_type:      p.product_type ?? '',
-        tags,
-        options,
-        variant_id:        '',
-        variant_title:     '',
-        sku:               '',
-        price:             '',
-        compare_at_price:  '',
-        available:         '',
-        images,
-        published_at:      p.published_at ?? '',
-        created_at:        p.created_at ?? '',
-        updated_at:        p.updated_at ?? '',
-      })
-      return
-    }
-
-    p.variants.forEach(v => {
-      // Build a human-readable variant label e.g. "Blue / King"
-      const variantParts = [v.option1, v.option2, v.option3].filter(Boolean).filter(x => x !== 'Default Title')
-      const variantTitle = variantParts.join(' / ')
-
-      rows.push({
-        product_id:        String(p.id),
-        product_title:     p.title ?? '',
-        vendor:            p.vendor ?? '',
-        product_type:      p.product_type ?? '',
-        tags,
-        options,
-        variant_id:        String(v.id),
-        variant_title:     variantTitle,
-        sku:               v.sku ?? '',
-        price:             v.price ?? '',
-        compare_at_price:  v.compare_at_price ?? '',
-        available:         v.available ? 'Yes' : 'No',
-        images,
-        published_at:      p.published_at ?? '',
-        created_at:        p.created_at ?? '',
-        updated_at:        p.updated_at ?? '',
-      })
-    })
-  })
-
-  return rows
 }

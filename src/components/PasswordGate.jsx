@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const PASSWORD = 'shopify193'
+const PASSWORD = import.meta.env.VITE_APP_PASSWORD
 
 export default function PasswordGate({ children }) {
   const [input, setInput]       = useState('')

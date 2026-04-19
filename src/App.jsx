@@ -5,6 +5,7 @@ import RelatedInfo from './pages/RelatedInfo'
 
 export default function App() {
   return (
+    <PasswordGate>
     <div>
       <nav style={{
         background: '#fff',
@@ -63,5 +64,6 @@ export default function App() {
         <Route path="/info"       element={<RelatedInfo />} />
       </Routes>
     </div>
+    </PasswordGate>
   )
 }

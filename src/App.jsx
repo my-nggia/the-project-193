@@ -2,6 +2,7 @@ import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import GetData from './pages/GetData'
 import HowToUse from './pages/HowToUse'
 import RelatedInfo from './pages/RelatedInfo'
+import PasswordGate from './components/PasswordGate'
 
 export default function App() {
   return (
